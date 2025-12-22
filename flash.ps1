@@ -58,7 +58,8 @@ try {
     Write-Host "✔ Obraz pobrany poprawnie."
 
     Write-Host "[5/7] Pobieranie balenaEtcher..."
-    Invoke-WebRequest $ETCHER_EXE_URL -OutFile $ETCHER_EXE
+    Start-BitsTransfer -Source $ETCHER_EXE_URL -Destination $ETCHER_EXE
+
 
     Write-Host ""
     Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
