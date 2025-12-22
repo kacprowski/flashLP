@@ -65,8 +65,8 @@ try {
     }
     Write-Host "✔ Obraz pobrany poprawnie."
 
-    # ===== [5/6] ETCHER (MS STORE) =====
-    Write-Host "[5/6] Instalowanie balenaEtcher (winget)..."
+    # ===== [5/6] ETCHER =====
+    Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
     winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
     $APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
@@ -80,8 +80,15 @@ try {
     Write-Host "Select target  -> KARTA SD"
     Write-Host "Flash!"
     Write-Host ""
+    Write-Host "ZAMKNIJ ETCHERA PO ZAKOŃCZENIU FLASHOWANIA" -ForegroundColor Yellow
+    Write-Host ""
 
     Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
+
+    Write-Host "Czekam aż zamkniesz balenaEtcher..." -ForegroundColor Cyan
+    while (Get-Process -Name "balenaEtcher" -ErrorAction SilentlyContinue) {
+        Start-Sleep 2
+    }
 }
 finally {
     # ===== [6/6] CLEANUP =====
