@@ -35,10 +35,7 @@ try {
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
-    if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
-
     $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
-    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip" }
 
     $pth = @(
         $ZIP_NAME.Name
@@ -59,40 +56,23 @@ try {
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
     & $PY_EXE -c "import gdown; print('PYTHON OK')"
 
-    # ===== [4/7] OBRAZ (RETRY) =====
+    # ===== [4/7] OBRAZ =====
     Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
-    $success = $false
+    & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
+        -O $IMAGE_PATH --continue --fuzzy
 
-    for ($i = 1; $i -le 5; $i++) {
-        Write-Host "  Próba $i/5..."
-        & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
-            -O $IMAGE_PATH --continue --fuzzy
-
-        if (Test-Path $IMAGE_PATH) {
-            $success = $true
-            break
-        }
-        Start-Sleep 5
+    if (-not (Test-Path $IMAGE_PATH)) {
+        throw "Nie udało się pobrać obrazu."
     }
-
-    if (-not $success) {
-        throw "Nie udało się pobrać obrazu po 5 próbach."
-    }
-
     Write-Host "✔ Obraz pobrany poprawnie."
 
     # ===== [5/7] ETCHER =====
-    Write-Host "[5/7] Instalowanie balenaEtcher (winget)..."
+    Write-Host "[5/7] Instalowanie / sprawdzanie balenaEtcher..."
     winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
-    $ETCHER_PATHS = @(
-        "$Env:ProgramFiles\balenaEtcher\balenaEtcher.exe",
-        "$Env:ProgramFiles(x86)\balenaEtcher\balenaEtcher.exe"
-    )
-
-    $ETCHER_EXE = $ETCHER_PATHS | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $ETCHER_EXE) {
-        throw "Nie znaleziono balenaEtcher.exe"
+    $ETCHER_CMD = Get-Command balenaEtcher -ErrorAction SilentlyContinue
+    if (-not $ETCHER_CMD) {
+        throw "balenaEtcher nie jest dostępny w systemie."
     }
 
     # ===== [6/7] START ETCHERA =====
@@ -103,13 +83,12 @@ try {
     Write-Host "Flash!"
     Write-Host ""
 
-    Start-Process -FilePath $ETCHER_EXE -Wait
+    Start-Process -FilePath $ETCHER_CMD.Source -Wait
 }
 finally {
     # ===== [7/7] CLEANUP =====
     Write-Host ""
     Write-Host "[7/7] Sprzątanie..."
-    winget uninstall --id Balena.Etcher --silent | Out-Null
     Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
-    Write-Host "Gotowe. Na komputerze nie pozostał obraz, Python ani Etcher." -ForegroundColor Green
+    Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
 }
