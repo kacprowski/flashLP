@@ -2,7 +2,7 @@
 # RPi SD Flasher (Windows)
 # Google Drive + balenaEtcher
 # Python EMBEDDABLE (tymczasowy)
-# Etcher via WINGET (STABILNE)
+# Etcher via WINGET
 # ==========================================
 
 $ErrorActionPreference = "Stop"
@@ -29,12 +29,11 @@ $PY_DIR     = Join-Path $WORKDIR "python"
 $PY_EXE     = Join-Path $PY_DIR "python.exe"
 
 try {
-    # ===== [1/7] PYTHON EMBEDDABLE =====
+    # ===== [1/7] PYTHON =====
     Write-Host "[1/7] Przygotowanie tymczasowego Pythona..."
     Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
-    # ===== FIX python._pth =====
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
     $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
 
@@ -57,14 +56,42 @@ try {
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
     & $PY_EXE -c "import gdown; print('PYTHON OK')"
 
-    # ===== [4/7] OBRAZ =====
+    # ===== [4/7] OBRAZ (RETRY + CONTINUE) =====
     Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
-    & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" -O $IMAGE_PATH
+
+    $success = $false
+    for ($i = 1; $i -le 5; $i++) {
+        Write-Host "  Próba $i/5..."
+        & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
+            -O $IMAGE_PATH --continue --fuzzy
+
+        if (Test-Path $IMAGE_PATH) {
+            $success = $true
+            break
+        }
+        Start-Sleep 5
+    }
+
+    if (-not $success) {
+        throw "Nie udało się pobrać obrazu po 5 próbach."
+    }
+
     Write-Host "✔ Obraz pobrany poprawnie."
 
-    # ===== [5/7] ETCHER (WINGET) =====
+    # ===== [5/7] ETCHER =====
     Write-Host "[5/7] Instalowanie balenaEtcher (winget)..."
     winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
+
+    # znajdź faktyczną ścieżkę
+    $ETCHER_PATHS = @(
+        "$Env:ProgramFiles\balenaEtcher\balenaEtcher.exe",
+        "$Env:ProgramFiles(x86)\balenaEtcher\balenaEtcher.exe"
+    )
+
+    $ETCHER_EXE = $ETCHER_PATHS | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $ETCHER_EXE) {
+        throw "Nie znaleziono balenaEtcher.exe po instalacji."
+    }
 
     # ===== [6/7] START ETCHERA =====
     Write-Host ""
@@ -74,13 +101,11 @@ try {
     Write-Host "Flash!"
     Write-Host ""
 
-    Start-Process "balenaEtcher" -Wait
+    Start-Process -FilePath $ETCHER_EXE -Wait
 }
 finally {
     # ===== [7/7] CLEANUP =====
     Write-Host ""
     Write-Host "[7/7] Sprzątanie..."
     winget uninstall --id Balena.Etcher --silent | Out-Null
-    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
-    Write-Host "Gotowe. Na komputerze nie pozostał obraz, Python ani Etcher." -ForegroundColor Green
-}
+    Remove-Item -Recurse -Force $WORKDIR -E
