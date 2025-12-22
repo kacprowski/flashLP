@@ -108,4 +108,6 @@ finally {
     Write-Host ""
     Write-Host "[7/7] Sprzątanie..."
     winget uninstall --id Balena.Etcher --silent | Out-Null
-    Remove-Item -Recurse -Force $WORKDIR -E
+    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
+    Write-Host "Gotowe. Na komputerze nie pozostał obraz, Python ani Etcher." -ForegroundColor Green
+}
