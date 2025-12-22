@@ -1,8 +1,7 @@
 # ==========================================
 # RPi SD Flasher (Windows)
-# Google Drive + balenaEtcher
+# Google Drive + balenaEtcher (MS Store)
 # Python EMBEDDABLE (tymczasowy)
-# Etcher via WINGET
 # ==========================================
 
 $ErrorActionPreference = "Stop"
@@ -29,8 +28,8 @@ $PY_DIR     = Join-Path $WORKDIR "python"
 $PY_EXE     = Join-Path $PY_DIR "python.exe"
 
 try {
-    # ===== [1/7] PYTHON =====
-    Write-Host "[1/7] Przygotowanie tymczasowego Pythona..."
+    # ===== [1/6] PYTHON =====
+    Write-Host "[1/6] Przygotowanie tymczasowego Pythona..."
     Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
@@ -46,18 +45,18 @@ try {
     )
     Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
 
-    # ===== [2/7] pip =====
-    Write-Host "[2/7] Instalowanie pip..."
+    # ===== [2/6] pip =====
+    Write-Host "[2/6] Instalowanie pip..."
     Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
     & $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
 
-    # ===== [3/7] gdown =====
-    Write-Host "[3/7] Instalowanie gdown..."
+    # ===== [3/6] gdown =====
+    Write-Host "[3/6] Instalowanie gdown..."
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
     & $PY_EXE -c "import gdown; print('PYTHON OK')"
 
-    # ===== [4/7] OBRAZ =====
-    Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
+    # ===== [4/6] OBRAZ =====
+    Write-Host "[4/6] Pobieranie obrazu z Google Drive..."
     & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
         -O $IMAGE_PATH --continue --fuzzy
 
@@ -66,16 +65,15 @@ try {
     }
     Write-Host "✔ Obraz pobrany poprawnie."
 
-    # ===== [5/7] ETCHER =====
-    Write-Host "[5/7] Instalowanie / sprawdzanie balenaEtcher..."
+    # ===== [5/6] ETCHER (MS STORE) =====
+    Write-Host "[5/6] Instalowanie balenaEtcher (winget)..."
     winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
-    $ETCHER_CMD = Get-Command balenaEtcher -ErrorAction SilentlyContinue
-    if (-not $ETCHER_CMD) {
-        throw "balenaEtcher nie jest dostępny w systemie."
+    $APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
+    if (-not $APP) {
+        throw "Nie znaleziono balenaEtcher w systemie."
     }
 
-    # ===== [6/7] START ETCHERA =====
     Write-Host ""
     Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
     Write-Host "Flash from file -> $IMAGE_PATH"
@@ -83,12 +81,12 @@ try {
     Write-Host "Flash!"
     Write-Host ""
 
-    Start-Process -FilePath $ETCHER_CMD.Source -Wait
+    Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
 }
 finally {
-    # ===== [7/7] CLEANUP =====
+    # ===== [6/6] CLEANUP =====
     Write-Host ""
-    Write-Host "[7/7] Sprzątanie..."
+    Write-Host "[6/6] Sprzątanie..."
     Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
     Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
 }
