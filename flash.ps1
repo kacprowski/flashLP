@@ -10,7 +10,6 @@ $ErrorActionPreference = "Stop"
 $GOOGLE_DRIVE_FILE_ID = "1cMRIFfbPRVDvhJYm9dbR002xypPs9AhF"
 $IMAGE_NAME = "9.7_29.04.2025.zip"
 
-# Portable balenaEtcher ZIP
 $ETCHER_ZIP_URL = "https://github.com/balena-io/etcher/releases/latest/download/balenaEtcher-Portable-Setup.zip"
 # =======================
 
@@ -23,7 +22,6 @@ $WORKDIR = Join-Path $env:TEMP ("rpi-flash-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $WORKDIR | Out-Null
 
 $IMAGE_PATH = Join-Path $WORKDIR $IMAGE_NAME
-$COOKIE     = Join-Path $WORKDIR "cookie.txt"
 $ETCHER_ZIP = Join-Path $WORKDIR "etcher.zip"
 $ETCHER_DIR = Join-Path $WORKDIR "etcher"
 
@@ -31,25 +29,37 @@ try {
     # ===== POBIERANIE Z GOOGLE DRIVE =====
     Write-Host "[1/4] Pobieranie obrazu z Google Drive (bez Pythona)..."
 
-    $url = "https://drive.google.com/uc?export=download&id=$GOOGLE_DRIVE_FILE_ID"
+    $baseUrl = "https://drive.google.com/uc?export=download&id=$GOOGLE_DRIVE_FILE_ID"
 
-    # Pierwsze zapytanie – zapis cookie + HTML
-    $response = Invoke-WebRequest -Uri $url -SessionVariable sess -OutFile $null
+    # SESJA HTTP (cookies!)
+    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
-    # Wyciągnij token confirm
-    if ($response.Content -match "confirm=([0-9A-Za-z_]+)") {
+    # 1️⃣ Pierwsze zapytanie – HTML + cookies
+    $response = Invoke-WebRequest -Uri $baseUrl -WebSession $session
+
+    # 2️⃣ Wyciągnięcie tokenu confirm
+    if ($response.Content -match 'confirm=([0-9A-Za-z_-]+)') {
         $confirm = $matches[1]
     } else {
-        throw "Nie udało się pobrać tokenu confirm z Google Drive."
+        throw "Google Drive nie zwrócił tokenu confirm (blokada / zmiana HTML)."
     }
 
-    # Drugie zapytanie – prawdziwy download
+    # 3️⃣ Drugie zapytanie – PRAWDZIWY DOWNLOAD
     $downloadUrl = "https://drive.google.com/uc?export=download&confirm=$confirm&id=$GOOGLE_DRIVE_FILE_ID"
-    Invoke-WebRequest -Uri $downloadUrl -WebSession $sess -OutFile $IMAGE_PATH
 
+    Invoke-WebRequest -Uri $downloadUrl -WebSession $session -OutFile $IMAGE_PATH
+
+    # ===== WALIDACJA =====
     if (-not (Test-Path $IMAGE_PATH)) {
-        throw "Pobieranie obrazu nie powiodło się."
+        throw "Plik nie został pobrany."
     }
+
+    $firstBytes = Get-Content -Path $IMAGE_PATH -TotalCount 1 -Raw
+    if ($firstBytes -match '<!DOCTYPE html>|<html') {
+        throw "Pobrano HTML zamiast ZIP. Google Drive zablokował pobieranie."
+    }
+
+    Write-Host "✔ Obraz pobrany poprawnie."
 
     # ===== POBIERANIE ETCHERA =====
     Write-Host "[2/4] Pobieranie balenaEtcher..."
