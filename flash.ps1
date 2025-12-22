@@ -36,11 +36,15 @@ try {
     Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
-    # ===== FIX python._pth (TO JEST KLUCZ) =====
+    # ===== FIX python._pth (KRYTYCZNE) =====
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
     if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
 
+    $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
+    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip (stdlib)" }
+
     $pth = @(
+        $ZIP_NAME.Name
         "."
         "Lib"
         "Lib\site-packages"
@@ -48,9 +52,9 @@ try {
     )
 
     Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
-    # ==========================================
+    # =====================================
 
-    # ===== [2/7] pip (lokalny, do tego Pythona) =====
+    # ===== [2/7] pip =====
     Write-Host "[2/7] Instalowanie pip..."
     Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
     & $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
@@ -59,8 +63,8 @@ try {
     Write-Host "[3/7] Instalowanie gdown..."
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
 
-    # TWARDY TEST
-    & $PY_EXE -c "import gdown; print('gdown OK')" 
+    # TWARDY TEST ŚRODOWISKA
+    & $PY_EXE -c "import encodings, site, gdown; print('PYTHON OK')" 
 
     # ===== [4/7] POBIERANIE OBRAZU =====
     Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
