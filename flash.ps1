@@ -66,38 +66,28 @@ try {
     Write-Host "✔ Obraz pobrany poprawnie."
 
     # ===== [5/6] ETCHER =====
-    Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
-    winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
+Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
+winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
-    $APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
-    if (-not $APP) {
-        throw "Nie znaleziono balenaEtcher w systemie."
-    }
-
-    Write-Host ""
-    Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
-    Write-Host "Flash from file -> $IMAGE_PATH"
-    Write-Host "Select target  -> KARTA SD"
-    Write-Host "Flash!"
-    Write-Host ""
-
-    Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
-
-    # ===== WAIT NA OKNO ETCHERA =====
-    Write-Host "Czekam aż balenaEtcher się uruchomi..." -ForegroundColor Cyan
-    while (-not (Get-Process | Where-Object { $_.MainWindowTitle -match "Etcher" })) {
-        Start-Sleep 1
-    }
-
-    Write-Host "Etcher uruchomiony. Czekam aż go zamkniesz..." -ForegroundColor Yellow
-    while (Get-Process | Where-Object { $_.MainWindowTitle -match "Etcher" }) {
-        Start-Sleep 2
-    }
+$APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
+if (-not $APP) {
+    throw "Nie znaleziono balenaEtcher w systemie."
 }
-finally {
-    # ===== [6/6] CLEANUP =====
-    Write-Host ""
-    Write-Host "[6/6] Sprzątanie..."
-    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
-    Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
-}
+
+Write-Host ""
+Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
+Write-Host "Flash from file -> $IMAGE_PATH"
+Write-Host "Select target  -> KARTA SD"
+Write-Host "Flash!"
+Write-Host ""
+
+Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
+
+Write-Host ""
+Write-Host "==================================================" -ForegroundColor Yellow
+Write-Host "PO ZAKOŃCZENIU FLASHOWANIA I ZAMKNIĘCIU ETCHERA" -ForegroundColor Yellow
+Write-Host "NACIŚNIJ ENTER, ABY ZAKOŃCZYĆ SKRYPT" -ForegroundColor Yellow
+Write-Host "==================================================" -ForegroundColor Yellow
+Write-Host ""
+
+Read-Host "Czekam"
