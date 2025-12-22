@@ -1,6 +1,6 @@
 # ==========================================
 # RPi SD Flasher (Windows)
-# Google Drive + balenaEtcher (MS Store / winget)
+# Google Drive + balenaEtcher
 # Python EMBEDDABLE (tymczasowy)
 # ==========================================
 
@@ -27,77 +27,81 @@ $IMAGE_PATH = Join-Path $WORKDIR $IMAGE_NAME
 $PY_DIR     = Join-Path $WORKDIR "python"
 $PY_EXE     = Join-Path $PY_DIR "python.exe"
 
-try {
-    # ===== [1/6] PYTHON =====
-    Write-Host "[1/6] Przygotowanie tymczasowego Pythona..."
-    Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
-    Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
+# =========================================================
+# [1/5] PYTHON
+# =========================================================
+Write-Host "[1/5] Przygotowanie tymczasowego Pythona..."
+Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
+Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
-    $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
-    if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
+$PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
+$ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
 
-    $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
-    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip" }
-
-    $pth = @(
-        $ZIP_NAME.Name
-        "."
-        "Lib"
-        "Lib\site-packages"
-        "import site"
-    )
-    Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
-
-    # ===== [2/6] pip =====
-    Write-Host "[2/6] Instalowanie pip..."
-    Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
-    & $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
-
-    # ===== [3/6] gdown =====
-    Write-Host "[3/6] Instalowanie gdown..."
-    & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
-    & $PY_EXE -c "import gdown; print('PYTHON OK')"
-
-    # ===== [4/6] OBRAZ =====
-    Write-Host "[4/6] Pobieranie obrazu z Google Drive..."
-    & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
-        -O $IMAGE_PATH --continue --fuzzy
-
-    if (-not (Test-Path $IMAGE_PATH)) {
-        throw "Nie udało się pobrać obrazu."
-    }
-    Write-Host "✔ Obraz pobrany poprawnie."
-
-    # ===== [5/6] ETCHER =====
-    Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
-    winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
-
-    $APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
-    if (-not $APP) {
-        throw "Nie znaleziono balenaEtcher w systemie."
-    }
-
-    Write-Host ""
-    Write-Host "==================================================" -ForegroundColor Yellow
-    Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
-    Write-Host "Flash from file -> $IMAGE_PATH" -ForegroundColor Yellow
-    Write-Host "Select target  -> KARTA SD" -ForegroundColor Yellow
-    Write-Host "Flash!" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "PO ZAKOŃCZENIU FLASHOWANIA I ZAMKNIĘCIU ETCHERA" -ForegroundColor Yellow
-    Write-Host "NACIŚNIJ ENTER, ABY ZAKOŃCZYĆ SKRYPT" -ForegroundColor Yellow
-    Write-Host "==================================================" -ForegroundColor Yellow
-    Write-Host ""
-
-    Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
-
-    # ===== JEDYNE NIEZAWODNE CZEKAJ =====
-    Read-Host "Czekam"
+if (-not $PTH_FILE -or -not $ZIP_NAME) {
+    throw "Błąd przygotowania Pythona"
 }
-finally {
-    # ===== [6/6] CLEANUP =====
-    Write-Host ""
-    Write-Host "[6/6] Sprzątanie..."
-    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
-    Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
+
+$pth = @(
+    $ZIP_NAME.Name
+    "."
+    "Lib"
+    "Lib\site-packages"
+    "import site"
+)
+Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
+
+# =========================================================
+# [2/5] pip + gdown
+# =========================================================
+Write-Host "[2/5] Instalowanie pip i gdown..."
+Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
+& $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
+& $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
+& $PY_EXE -c "import gdown; print('PYTHON OK')"
+
+# =========================================================
+# [3/5] OBRAZ
+# =========================================================
+Write-Host "[3/5] Pobieranie obrazu z Google Drive..."
+& $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
+    -O $IMAGE_PATH --continue --fuzzy
+
+if (-not (Test-Path $IMAGE_PATH)) {
+    throw "Nie udało się pobrać obrazu."
 }
+Write-Host "✔ Obraz pobrany poprawnie."
+
+# =========================================================
+# [4/5] ETCHER
+# =========================================================
+Write-Host "[4/5] Instalowanie / uruchamianie balenaEtcher..."
+winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
+
+$APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
+if (-not $APP) {
+    throw "Nie znaleziono balenaEtcher w systemie."
+}
+
+Write-Host ""
+Write-Host "==================================================" -ForegroundColor Yellow
+Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
+Write-Host "Flash from file -> $IMAGE_PATH" -ForegroundColor Yellow
+Write-Host "Select target  -> KARTA SD" -ForegroundColor Yellow
+Write-Host "Flash!" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "PO ZAKOŃCZENIU FLASHOWANIA I ZAMKNIĘCIU ETCHERA" -ForegroundColor Yellow
+Write-Host "NACIŚNIJ ENTER, ABY POSPRZĄTAĆ" -ForegroundColor Yellow
+Write-Host "==================================================" -ForegroundColor Yellow
+Write-Host ""
+
+Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
+
+Read-Host "Czekam"
+
+# =========================================================
+# [5/5] CLEANUP
+# =========================================================
+Write-Host ""
+Write-Host "[5/5] Sprzątanie..."
+Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
+Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
