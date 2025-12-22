@@ -6,14 +6,14 @@
 
 $ErrorActionPreference = "Stop"
 
-# ===== KONFIGURACJA (ZMIENIASZ TYLKO TO) =====
+# ===== KONFIGURACJA =====
 $GOOGLE_DRIVE_FILE_ID = "1cMRIFfbPRVDvhJYm9dbR002xypPs9AhF"
 $IMAGE_NAME = "9.7_29.04.2025.zip"
-# ============================================
+# =======================
 
-$ETCHER_ZIP_URL = "https://github.com/balena-io/etcher/releases/latest/download/balenaEtcher-Portable-Setup.zip"
 $PY_URL  = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
 $PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
+$ETCHER_EXE_URL = "https://github.com/balena-io/etcher/releases/latest/download/balenaEtcher-Setup.exe"
 
 Write-Host ""
 Write-Host "=== Raspberry Pi SD Flasher ===" -ForegroundColor Cyan
@@ -23,16 +23,14 @@ Write-Host ""
 $WORKDIR = Join-Path $env:TEMP ("rpi-flash-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $WORKDIR | Out-Null
 
-$IMAGE_PATH = Join-Path $WORKDIR $IMAGE_NAME
-$ETCHER_ZIP = Join-Path $WORKDIR "etcher.zip"
-$ETCHER_DIR = Join-Path $WORKDIR "etcher"
-$PY_DIR     = Join-Path $WORKDIR "python"
-$PY_EXE     = Join-Path $PY_DIR "python.exe"
+$IMAGE_PATH  = Join-Path $WORKDIR $IMAGE_NAME
+$PY_DIR      = Join-Path $WORKDIR "python"
+$PY_EXE      = Join-Path $PY_DIR "python.exe"
+$ETCHER_EXE  = Join-Path $WORKDIR "balenaEtcher.exe"
 
 try {
     # ===== [1/7] PYTHON EMBEDDABLE =====
     Write-Host "[1/7] Przygotowanie tymczasowego Pythona..."
-
     Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
@@ -50,7 +48,6 @@ try {
         "Lib\site-packages"
         "import site"
     )
-
     Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
     # =====================================
 
@@ -63,7 +60,7 @@ try {
     Write-Host "[3/7] Instalowanie gdown..."
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
 
-    # TWARDY TEST ŚRODOWISKA
+    # test środowiska
     & $PY_EXE -c "import encodings, site, gdown; print('PYTHON OK')" 
 
     # ===== [4/7] POBIERANIE OBRAZU =====
@@ -73,23 +70,17 @@ try {
     if (-not (Test-Path $IMAGE_PATH)) {
         throw "Pobieranie obrazu nie powiodło się."
     }
-
     Write-Host "✔ Obraz pobrany poprawnie."
 
     # ===== [5/7] ETCHER =====
     Write-Host "[5/7] Pobieranie balenaEtcher..."
-    Invoke-WebRequest $ETCHER_ZIP_URL -OutFile $ETCHER_ZIP
-    Expand-Archive $ETCHER_ZIP $ETCHER_DIR -Force
+    Invoke-WebRequest $ETCHER_EXE_URL -OutFile $ETCHER_EXE
 
-    $ETCHER_EXE = Get-ChildItem $ETCHER_DIR -Recurse -Filter "*.exe" |
-        Where-Object { $_.Name -match "Etcher|balena" } |
-        Select-Object -First 1
-
-    if (-not $ETCHER_EXE) {
-        throw "Nie znaleziono Etcher.exe"
+    if (-not (Test-Path $ETCHER_EXE)) {
+        throw "Nie udało się pobrać balenaEtcher."
     }
 
-    # ===== [6/7] INSTRUKCJA =====
+    # ===== [6/7] START ETCHERA =====
     Write-Host ""
     Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
     Write-Host "  Flash from file -> $IMAGE_PATH"
@@ -99,9 +90,7 @@ try {
     Write-Host "Po zakończeniu ZAMKNIJ Etcher." -ForegroundColor Yellow
     Write-Host ""
 
-    Start-Process -FilePath $ETCHER_EXE.FullName `
-        -WorkingDirectory $ETCHER_EXE.DirectoryName `
-        -Wait
+    Start-Process -FilePath $ETCHER_EXE -Wait
 }
 finally {
     # ===== [7/7] SPRZĄTANIE =====
@@ -110,5 +99,5 @@ finally {
     try {
         Remove-Item -Recurse -Force $WORKDIR
     } catch {}
-    Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
+    Write-Host "Gotowe. Na komputerze nie pozostał obraz, Python ani Etcher." -ForegroundColor Green
 }
