@@ -1,6 +1,6 @@
 # ==========================================
 # RPi SD Flasher (Windows)
-# Google Drive + balenaEtcher (MS Store)
+# Google Drive + balenaEtcher (MS Store / winget)
 # Python EMBEDDABLE (tymczasowy)
 # ==========================================
 
@@ -34,7 +34,10 @@ try {
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
+    if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
+
     $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
+    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip" }
 
     $pth = @(
         $ZIP_NAME.Name
@@ -66,28 +69,35 @@ try {
     Write-Host "✔ Obraz pobrany poprawnie."
 
     # ===== [5/6] ETCHER =====
-Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
-winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
+    Write-Host "[5/6] Instalowanie / uruchamianie balenaEtcher..."
+    winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
-$APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
-if (-not $APP) {
-    throw "Nie znaleziono balenaEtcher w systemie."
+    $APP = Get-StartApps | Where-Object { $_.Name -like "*Etcher*" } | Select-Object -First 1
+    if (-not $APP) {
+        throw "Nie znaleziono balenaEtcher w systemie."
+    }
+
+    Write-Host ""
+    Write-Host "==================================================" -ForegroundColor Yellow
+    Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
+    Write-Host "Flash from file -> $IMAGE_PATH" -ForegroundColor Yellow
+    Write-Host "Select target  -> KARTA SD" -ForegroundColor Yellow
+    Write-Host "Flash!" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "PO ZAKOŃCZENIU FLASHOWANIA I ZAMKNIĘCIU ETCHERA" -ForegroundColor Yellow
+    Write-Host "NACIŚNIJ ENTER, ABY ZAKOŃCZYĆ SKRYPT" -ForegroundColor Yellow
+    Write-Host "==================================================" -ForegroundColor Yellow
+    Write-Host ""
+
+    Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
+
+    # ===== JEDYNE NIEZAWODNE CZEKAJ =====
+    Read-Host "Czekam"
 }
-
-Write-Host ""
-Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
-Write-Host "Flash from file -> $IMAGE_PATH"
-Write-Host "Select target  -> KARTA SD"
-Write-Host "Flash!"
-Write-Host ""
-
-Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
-
-Write-Host ""
-Write-Host "==================================================" -ForegroundColor Yellow
-Write-Host "PO ZAKOŃCZENIU FLASHOWANIA I ZAMKNIĘCIU ETCHERA" -ForegroundColor Yellow
-Write-Host "NACIŚNIJ ENTER, ABY ZAKOŃCZYĆ SKRYPT" -ForegroundColor Yellow
-Write-Host "==================================================" -ForegroundColor Yellow
-Write-Host ""
-
-Read-Host "Czekam"
+finally {
+    # ===== [6/6] CLEANUP =====
+    Write-Host ""
+    Write-Host "[6/6] Sprzątanie..."
+    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
+    Write-Host "Gotowe. Na komputerze nie pozostał obraz ani Python." -ForegroundColor Green
+}
