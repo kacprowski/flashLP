@@ -80,13 +80,17 @@ try {
     Write-Host "Select target  -> KARTA SD"
     Write-Host "Flash!"
     Write-Host ""
-    Write-Host "ZAMKNIJ ETCHERA PO ZAKOŃCZENIU FLASHOWANIA" -ForegroundColor Yellow
-    Write-Host ""
 
     Start-Process "explorer.exe" "shell:AppsFolder\$($APP.AppID)"
 
-    Write-Host "Czekam aż zamkniesz balenaEtcher..." -ForegroundColor Cyan
-    while (Get-Process -Name "balenaEtcher" -ErrorAction SilentlyContinue) {
+    # ===== WAIT NA OKNO ETCHERA =====
+    Write-Host "Czekam aż balenaEtcher się uruchomi..." -ForegroundColor Cyan
+    while (-not (Get-Process | Where-Object { $_.MainWindowTitle -match "Etcher" })) {
+        Start-Sleep 1
+    }
+
+    Write-Host "Etcher uruchomiony. Czekam aż go zamkniesz..." -ForegroundColor Yellow
+    while (Get-Process | Where-Object { $_.MainWindowTitle -match "Etcher" }) {
         Start-Sleep 2
     }
 }
