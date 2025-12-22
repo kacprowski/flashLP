@@ -6,6 +6,9 @@
 
 $ErrorActionPreference = "Stop"
 
+# WYMUSZENIE TLS 1.2 (GitHub, Python, pip)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # ===== KONFIGURACJA =====
 $GOOGLE_DRIVE_FILE_ID = "1cMRIFfbPRVDvhJYm9dbR002xypPs9AhF"
 $IMAGE_NAME = "9.7_29.04.2025.zip"
@@ -23,18 +26,23 @@ Write-Host ""
 $WORKDIR = Join-Path $env:TEMP ("rpi-flash-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $WORKDIR | Out-Null
 
-$IMAGE_PATH = Join-Path $WORKDIR $IMAGE_NAME
-$PY_DIR     = Join-Path $WORKDIR "python"
-$PY_EXE     = Join-Path $PY_DIR "python.exe"
-$ETCHER_EXE = Join-Path $WORKDIR "balenaEtcher.exe"
+$IMAGE_PATH  = Join-Path $WORKDIR $IMAGE_NAME
+$PY_DIR      = Join-Path $WORKDIR "python"
+$PY_EXE      = Join-Path $PY_DIR "python.exe"
+$ETCHER_EXE  = Join-Path $WORKDIR "balenaEtcher.exe"
 
 try {
+    # ===== [1/7] PYTHON EMBEDDABLE =====
     Write-Host "[1/7] Przygotowanie tymczasowego Pythona..."
     Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
+    # ===== FIX python._pth (NIE PSUJE STDLIB) =====
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
+    if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
+
     $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
+    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip (stdlib)" }
 
     $pth = @(
         $ZIP_NAME.Name
@@ -43,35 +51,56 @@ try {
         "Lib\site-packages"
         "import site"
     )
-    Set-Content $PTH_FILE.FullName $pth -Encoding ASCII
+    Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
+    # ============================================
 
+    # ===== [2/7] pip =====
     Write-Host "[2/7] Instalowanie pip..."
     Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
     & $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
 
+    # ===== [3/7] gdown =====
     Write-Host "[3/7] Instalowanie gdown..."
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
-    & $PY_EXE -c "import encodings, gdown; print('PYTHON OK')"
 
+    # test środowiska
+    & $PY_EXE -c "import encodings, site, gdown; print('PYTHON OK')" 
+
+    # ===== [4/7] POBIERANIE OBRAZU =====
     Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
     & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" -O $IMAGE_PATH
+
+    if (-not (Test-Path $IMAGE_PATH)) {
+        throw "Pobieranie obrazu nie powiodło się."
+    }
     Write-Host "✔ Obraz pobrany poprawnie."
 
+    # ===== [5/7] ETCHER (BITS, NIE IWR) =====
     Write-Host "[5/7] Pobieranie balenaEtcher..."
     Start-BitsTransfer -Source $ETCHER_EXE_URL -Destination $ETCHER_EXE
 
+    if (-not (Test-Path $ETCHER_EXE)) {
+        throw "Nie udało się pobrać balenaEtcher."
+    }
 
+    # ===== [6/7] START ETCHERA =====
     Write-Host ""
     Write-Host "URUCHAMIAM BALENAETCHER" -ForegroundColor Yellow
-    Write-Host "Flash from file -> $IMAGE_PATH"
-    Write-Host "Select target -> KARTA SD"
-    Write-Host "Flash!"
+    Write-Host "  Flash from file -> $IMAGE_PATH"
+    Write-Host "  Select target  -> KARTA SD"
+    Write-Host "  Flash!"
+    Write-Host ""
+    Write-Host "Po zakończeniu ZAMKNIJ Etcher." -ForegroundColor Yellow
     Write-Host ""
 
-    Start-Process $ETCHER_EXE -Wait
+    Start-Process -FilePath $ETCHER_EXE -Wait
 }
 finally {
-    Write-Host "[7/7] Usuwanie plików tymczasowych..."
-    Remove-Item -Recurse -Force $WORKDIR -ErrorAction SilentlyContinue
+    # ===== [7/7] SPRZĄTANIE =====
+    Write-Host ""
+    Write-Host "[7/7] Usuwanie plików tymczasowych..." -ForegroundColor Cyan
+    try {
+        Remove-Item -Recurse -Force $WORKDIR
+    } catch {}
     Write-Host "Gotowe. Na komputerze nie pozostał obraz, Python ani Etcher." -ForegroundColor Green
 }
