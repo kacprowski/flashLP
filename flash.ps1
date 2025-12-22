@@ -35,7 +35,10 @@ try {
     Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
     $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
+    if (-not $PTH_FILE) { throw "Nie znaleziono python._pth" }
+
     $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
+    if (-not $ZIP_NAME) { throw "Nie znaleziono pythonXX.zip" }
 
     $pth = @(
         $ZIP_NAME.Name
@@ -56,10 +59,10 @@ try {
     & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
     & $PY_EXE -c "import gdown; print('PYTHON OK')"
 
-    # ===== [4/7] OBRAZ (RETRY + CONTINUE) =====
+    # ===== [4/7] OBRAZ (RETRY) =====
     Write-Host "[4/7] Pobieranie obrazu z Google Drive..."
-
     $success = $false
+
     for ($i = 1; $i -le 5; $i++) {
         Write-Host "  Próba $i/5..."
         & $PY_EXE -m gdown "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID" `
@@ -82,7 +85,6 @@ try {
     Write-Host "[5/7] Instalowanie balenaEtcher (winget)..."
     winget install --id Balena.Etcher --accept-source-agreements --accept-package-agreements
 
-    # znajdź faktyczną ścieżkę
     $ETCHER_PATHS = @(
         "$Env:ProgramFiles\balenaEtcher\balenaEtcher.exe",
         "$Env:ProgramFiles(x86)\balenaEtcher\balenaEtcher.exe"
@@ -90,7 +92,7 @@ try {
 
     $ETCHER_EXE = $ETCHER_PATHS | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $ETCHER_EXE) {
-        throw "Nie znaleziono balenaEtcher.exe po instalacji."
+        throw "Nie znaleziono balenaEtcher.exe"
     }
 
     # ===== [6/7] START ETCHERA =====
