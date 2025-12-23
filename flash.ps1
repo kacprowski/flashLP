@@ -31,8 +31,8 @@ $PY_EXE     = Join-Path $PY_DIR "python.exe"
 # [1/3] PYTHON
 # =========================================================
 Write-Host "[1/3] Przygotowanie tymczasowego Pythona..."
-Invoke-WebRequest $PY_URL -OutFile (Join-Path $WORKDIR "python.zip")
-Expand-Archive (Join-Path $WORKDIR "python.zip") $PY_DIR -Force
+Invoke-WebRequest $PY_URL -OutFile "$WORKDIR\python.zip"
+Expand-Archive "$WORKDIR\python.zip" $PY_DIR -Force
 
 $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 1
 $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
@@ -54,50 +54,33 @@ Set-Content -Path $PTH_FILE.FullName -Value $pth -Encoding ASCII
 # [2/3] pip + gdown
 # =========================================================
 Write-Host "[2/3] Instalowanie pip i gdown..."
-Invoke-WebRequest $PIP_URL -OutFile (Join-Path $PY_DIR "get-pip.py")
-& $PY_EXE (Join-Path $PY_DIR "get-pip.py") | Out-Null
+Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
+& $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
 & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
 & $PY_EXE -c "import gdown; print('PYTHON OK')" | Out-Null
 
 # =========================================================
-# [3/3] OBRAZ
+# [3/3] OBRAZ — FIXED
 # =========================================================
 Write-Host "[3/3] Pobieranie obrazu z Google Drive..."
 
-$GDOWN_URL = "https://drive.google.com/uc?id=$GOOGLE_DRIVE_FILE_ID"
-Write-Host "Gdown URL: $GDOWN_URL" -ForegroundColor DarkGray
-Write-Host "Output:    $IMAGE_PATH" -ForegroundColor DarkGray
-
-# (This is the same approach as your original script.)
-& $PY_EXE -m gdown $GDOWN_URL -O $IMAGE_PATH --continue --fuzzy
+# ✅ CORRECT, ROBUST METHOD
+& $PY_EXE -m gdown `
+    --id $GOOGLE_DRIVE_FILE_ID `
+    -O $IMAGE_PATH `
+    --continue
 
 if (-not (Test-Path $IMAGE_PATH)) {
     throw "Nie udało się pobrać obrazu."
 }
 
-# Validate it's really a ZIP (starts with 'PK')
-try {
-    $fs = [System.IO.File]::OpenRead($IMAGE_PATH)
-    $buf = New-Object byte[] 2
-    [void]$fs.Read($buf, 0, 2)
-    $fs.Close()
-
-    $sig = [System.Text.Encoding]::ASCII.GetString($buf)
-    if ($sig -ne "PK") {
-        $size = (Get-Item $IMAGE_PATH).Length
-        throw "Pobrany plik nie wygląda jak ZIP (signature='$sig', size=$size). To często oznacza stronę HTML z Google Drive (brak uprawnień / quota / virus scan)."
-    }
-} catch {
-    throw $_
-}
-
 Write-Host ""
 Write-Host "✔ Obraz pobrany poprawnie." -ForegroundColor Green
+Write-Host ""
 Write-Host "Lokalizacja:" -ForegroundColor Yellow
 Write-Host "  $IMAGE_PATH" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Yellow
-Write-Host "GOTOWE. MOZESZ TERAZ UZYC TEGO PLIKU." -ForegroundColor Yellow
 Write-Host "NACISNIJ ENTER, ABY POSPRZATAC (USUNAC TEMP)" -ForegroundColor Yellow
 Write-Host "LUB ZAMKNIJ OKNO, ABY ZOSTAWIC PLIKI." -ForegroundColor Yellow
 Write-Host "==================================================" -ForegroundColor Yellow
@@ -106,7 +89,7 @@ Write-Host ""
 Read-Host "Czekam"
 
 # =========================================================
-# CLEANUP (explicit only, like your original)
+# CLEANUP (explicit only)
 # =========================================================
 Write-Host ""
 Write-Host "Sprzątanie..."
