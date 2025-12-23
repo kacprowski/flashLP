@@ -8,7 +8,8 @@ $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # ===== KONFIGURACJA =====
-$GOOGLE_DRIVE_FILE_ID = "1cMRIFfbPRVDvhJYm9dbR002xypPs9AhF"
+
+$GOOGLE_DRIVE_FILE_ID = "1nntqdbbLeGq5lqKAGJ3ZMSSKQQX3HWX9"
 $IMAGE_NAME = "9.7_29.04.2025.zip"
 # =======================
 
