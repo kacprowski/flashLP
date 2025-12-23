@@ -38,7 +38,7 @@ $PTH_FILE = Get-ChildItem $PY_DIR -Filter "python*._pth" | Select-Object -First 
 $ZIP_NAME = Get-ChildItem $PY_DIR -Filter "python*.zip" | Select-Object -First 1
 
 if (-not $PTH_FILE -or -not $ZIP_NAME) {
-    throw "Python preparation failed"
+    throw "Python preparation failed."
 }
 
 $pth = @(
@@ -57,7 +57,7 @@ Write-Host "[2/5] Installing pip and gdown..."
 Invoke-WebRequest $PIP_URL -OutFile "$PY_DIR\get-pip.py"
 & $PY_EXE "$PY_DIR\get-pip.py" | Out-Null
 & $PY_EXE -m pip install --no-cache-dir gdown | Out-Null
-& $PY_EXE -c "import gdown; print('PYTHON OK')"
+& $PY_EXE -c "import gdown; print('PYTHON OK')" | Out-Null
 
 # =========================================================
 # [3/5] IMAGE
@@ -75,15 +75,23 @@ Write-Host "✔ Image downloaded successfully."
 # [4/5] RASPBERRY PI IMAGER
 # =========================================================
 Write-Host "[4/5] Installing / launching Raspberry Pi Imager..."
+
 winget install --id RaspberryPiImager.RaspberryPiImager `
     --accept-source-agreements `
     --accept-package-agreements `
-    --silent
+    --silent `
+    --scope machine
 
-$IMAGER_EXE = "$env:ProgramFiles\Raspberry Pi Imager\rpi-imager.exe"
-if (-not (Test-Path $IMAGER_EXE)) {
+# Locate Imager reliably (PATH / portable / per-user)
+$IMAGER_EXE = Get-Command rpi-imager.exe -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty Source -First 1
+
+if (-not $IMAGER_EXE) {
     throw "Raspberry Pi Imager not found."
 }
+
+Write-Host "✔ Raspberry Pi Imager found at:"
+Write-Host "  $IMAGER_EXE" -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Yellow
